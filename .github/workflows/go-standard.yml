@@ -7,7 +7,7 @@ on:
     branches:
       - master
 jobs:
-  standard-upload:
+  test-and-upstream:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -25,13 +25,21 @@ jobs:
       - name: Before Install
         run: |
           pip install requests
-      - name: Run Script
+      - name: Run Tests
         env:
           API_KEY: ${{ secrets.API_KEY }}
           EXPECTED_COVERAGE: ${{ secrets.EXPECTED_COVERAGE }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           go test -race -coverprofile=coverage.txt -covermode=atomic
           bash <(curl -s https://codecov.io/bash)
           python request.py
-          ./upstream.sh
+      - name: Upstream to Standards
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          COVERAGE_SOURCE_FILE: ${{ secrets.COVERAGE_SOURCE_FILE }}
+        if: ${{ github.event_name == 'push'}}
+        run: |
+          wget --header "Authorization: token ${GH_TOKEN}" \
+          --header "Accept: application/vnd.github.v3.raw" \
+          https://api.github.com/repos/codecov/standards/contents/upstream.sh
+          bash upstream.sh
